@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import asyncio
@@ -40,7 +41,7 @@ print(f'Benchmarking {host} with {clients} total clients. ' +
       f'{concurrency} clients concurrently. {roundtrips} roundtrips per client.\n')
 
 
-async def client(state):
+async def client(state, mode='ping'):
     '''A WebSocket client, which sends a message and expects an echo
     `roundtrip` number of times. This client will spawn a copy of itself afterwards,
     so that the requested concurrency-level is continuous.
@@ -59,13 +60,21 @@ async def client(state):
         return 'Reached max clients.'
     state['clients'] += 1
     timings = list()
+    if mode == 'ping':
+        message = json.dumps({
+            "type": "PING",
+            "data": {"temp_id": "yo"}
+        })
     async with websockets.connect(f'ws://{host}') as websocket:
         for i in range(roundtrips):
             await websocket.send(message)
             start = time.perf_counter()
             response = await websocket.recv()
-            if response != message:
-                raise 'Message received differs from message sent'
+            if mode == 'ping':
+                print(response)
+            else:
+                if response != message:
+                    raise 'Message received differs from message sent'
             timings.append(time.perf_counter() - start)
         await websocket.close()
     log_file.write(','.join([str(t) for t in timings]) + '\n')
